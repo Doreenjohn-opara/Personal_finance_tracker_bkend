@@ -9,21 +9,12 @@ const predefinedCategories = ["Salary", "Groceries", "Entertainment", "Utilities
 // create new entry
 export const createEntry = async (req: Request, res: Response, next: NextFunction ) => {
     try {
-        const { date, amount: rawAmount, category, type: rawType, description } = req.body;
+        const { date, amount, category, type: rawType, description } = req.body;
 
         // Check for userId
         const userId = (req as any).user.id;
         if (!userId) {
             return next(new ErrorResponse('Error', 401, ["Unauthorized access"]));
-        }
-
-        // Ensure amount is a number
-        const amount = typeof rawAmount === 'string' 
-        ? parseFloat(rawAmount.replace(/[^0-9.-]+/g, "")) 
-        : rawAmount;
-
-        if (isNaN(amount)) {
-        return next(new ErrorResponse('Error', 400, ["Invalid amount value."]));
         }
 
         // Ensure type is valid
@@ -32,26 +23,14 @@ export const createEntry = async (req: Request, res: Response, next: NextFunctio
         return next(new ErrorResponse('Error', 400, ["Invalid type value."]));
         }
 
-        // Verify category: if it's not predefined, allow it as a custom category
-        const isCustomCategory = !predefinedCategories.includes(category);
-        const finalCategory = isCustomCategory ? category : category;
-
         // Create and save the entry
-        const entry = new Entry({ user: userId, date, amount, category: finalCategory, type, description });
+        const entry = new Entry({ user: userId, date, amount, category, type, description });
         await entry.save();
-
-        // Format the date to display in the desired format
-        const formattedDate = moment(entry.date).format("DD-MM-YYYY"); // Adjust format as needed
         
         // Send response with the formatted date a
-        res.status(201).json({
-            entry: {
-                ...entry.toObject(),
-                date: formattedDate,
-            },
-            predefinedCategories,
-            customCategoryAllowed: true
-        });
+        res.status(201).json({error: false, data: entry, message: "Transaction saved successfully"});
+            
+        
     } catch (error: any) {
         return next(new ErrorResponse('Error', 500, ["Error creating entries: " + error.message]));
     }
@@ -76,7 +55,7 @@ export const getAllEntries = async (req: Request, res: Response, next: NextFunct
             });
             return;
         }
-        res.status(200).json(entries);
+        res.status(200).json({error: false, data: entries, message: ""});
         return;
     } catch (error: any) {
         return next(new ErrorResponse('Error', 500, ["Error fetching entries: " + error.message]));

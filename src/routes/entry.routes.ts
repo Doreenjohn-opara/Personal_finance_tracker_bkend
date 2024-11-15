@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createEntry, updateEntry, deleteEntry, getAllEntries, getEntryById } from '../controllers/entry.controller';
+import { createEntry, updateEntry, deleteEntry, getAllEntries, getEntryById } from '../controllers/transaction.controller';
 import protect from '../middleware/auth.middleware';
 
 const router = Router();
