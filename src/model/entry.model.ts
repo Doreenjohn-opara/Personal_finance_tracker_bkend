@@ -1,9 +1,9 @@
 import { Schema, Types, model} from 'mongoose';
-import { IEntry } from '../utils/entry.utils';
+import { IEntry } from '../types/entry.type';
 
 const entrySchema = new Schema<IEntry>(
     {
-    userId: { 
+    user: { 
         type: Schema.Types.ObjectId, 
         ref: "User", 
         required: true 

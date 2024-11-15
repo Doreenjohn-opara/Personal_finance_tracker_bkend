@@ -4,12 +4,14 @@ import ErrorResponse from '../utils/error.utils';
 
 // MiddleWare function for handling errors
 const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+  console.log(err.stack);
+  
     let message: string = "";
     let errors: Array<string> = [];
     let error = { ...err };
 
   // process errors array
-  if (err.errors)
+  if (err.errors) {
     errors = Object.values(err.errors).map((item: any) => {
       let result: any;
       if (item.properties) {
@@ -19,6 +21,8 @@ const errorHandler = (err: any, req: Request, res: Response, next: NextFunction)
       }
       return result;
     });
+  }
+    
 
     // Mongoose bad ObjectID
   if (err.name === "CastError") {

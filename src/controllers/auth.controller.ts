@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import errorHandler from "../middleware/errorHandler.middleware";
 import User from '../model/User.model';
-import { IUser } from "../utils/user.utils";
+import { IUser } from "../types/user.type";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -38,10 +38,15 @@ export const registerUser = async (req: Request, res: Response) => {
 export const loginUser = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) {
-            res.status(400).json({error: true, data: null, message: 'Please Provide email or password'});
+        if (!email) {
+            res.status(400).json({error: true, data: null, message: 'Please Provide email or password'})
             return;
-        }
+        };
+
+        if (!password) {
+            res.status(400).json({error: true, data: null, message: 'Invalid'});
+                return;
+        };
 
         const user = await User.findOne({ email });
         if(!user) {

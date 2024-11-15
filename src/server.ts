@@ -4,7 +4,8 @@ import cors from 'cors';
 import colors from 'colors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.config';
-import authRoutes from './routes/auth.routes'
+import authRoutes from './routes/auth.routes';
+import entryRoutes from './routes/entry.routes';
 
 dotenv.config();
 
@@ -22,11 +23,13 @@ app.use(errorHandler);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/entries', entryRoutes);
+
 
 // connect to server
 const server = app.listen(PORT, () => {
     console.log(
-        colors.yellow.bold(`Server listening on port ${PORT}`)
+        colors.yellow.bold.underline(`Server listening on port ${PORT}`)
     );
 })
 

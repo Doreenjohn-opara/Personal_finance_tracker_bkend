@@ -1,63 +1,104 @@
-import { RequestHandler, Request, Response } from "express";
+import { RequestHandler, Request, Response, NextFunction } from "express";
 import Entry from "../model/entry.model";
+import ErrorResponse from "../utils/error.utils";
+import moment from 'moment'; 
+
+// Predefined categories
+const predefinedCategories = ["Salary", "Groceries", "Entertainment", "Utilities", "Transportation", "Rent"];
 
 // create new entry
-export const createEntry = async (req: Request, res: Response) => {
+export const createEntry = async (req: Request, res: Response, next: NextFunction ) => {
     try {
-        const { date, amount, category, type, description } = req.body;
-        const userId = req.user.id;
+        const { date, amount: rawAmount, category, type: rawType, description } = req.body;
 
+        // Check for userId
+        const userId = (req as any).user.id;
         if (!userId) {
-            res.status(401).json({ error: true, data: null, message: "Unauthorized access" });
-            return;
+            return next(new ErrorResponse('Error', 401, ["Unauthorized access"]));
         }
 
-        const entry = new Entry({ user: userId, date, amount, category, type, description });
+        // Ensure amount is a number
+        const amount = typeof rawAmount === 'string' 
+        ? parseFloat(rawAmount.replace(/[^0-9.-]+/g, "")) 
+        : rawAmount;
+
+        if (isNaN(amount)) {
+        return next(new ErrorResponse('Error', 400, ["Invalid amount value."]));
+        }
+
+        // Ensure type is valid
+        const type = rawType?.toLowerCase();
+        if (!['income', 'expense'].includes(type)) {
+        return next(new ErrorResponse('Error', 400, ["Invalid type value."]));
+        }
+
+        // Verify category: if it's not predefined, allow it as a custom category
+        const isCustomCategory = !predefinedCategories.includes(category);
+        const finalCategory = isCustomCategory ? category : category;
+
+        // Create and save the entry
+        const entry = new Entry({ user: userId, date, amount, category: finalCategory, type, description });
         await entry.save();
-        res.status(201).json(entry);
-        return;
+
+        // Format the date to display in the desired format
+        const formattedDate = moment(entry.date).format("DD-MM-YYYY"); // Adjust format as needed
+        
+        // Send response with the formatted date a
+        res.status(201).json({
+            entry: {
+                ...entry.toObject(),
+                date: formattedDate,
+            },
+            predefinedCategories,
+            customCategoryAllowed: true
+        });
     } catch (error: any) {
-        res.status(500).json({ error: true, data: null, "Error creating note: ": error.message });
-        return;
+        return next(new ErrorResponse('Error', 500, ["Error creating entries: " + error.message]));
     }
 }
 
 // Get all entries
-export const getAllEntries = async (req: Request, res: Response) => {
+export const getAllEntries = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = req.user.id;
 
         if (!userId) {
-        res.status(401).json({ error: true, data: null, message: "Unauthorized access" });
-        return;
+        return next(new ErrorResponse('Error', 500, ["Unauthorized access"]));
         }
 
         const entries: any = await Entry.find({user: userId}).sort({createdAt: - 1});
+
+        // Check if no entries are found
+        if (entries.length === 0) {
+             res.status(200).json({
+                message: "No entries found for this user.",
+                data: [],
+            });
+            return;
+        }
         res.status(200).json(entries);
         return;
     } catch (error: any) {
-        res.status(500).json({ error: true, data: null, "Error fetching entries": error.message });
-        return; 
+        return next(new ErrorResponse('Error', 500, ["Error fetching entries: " + error.message]));
     }
 };
 
 // Get a single entry by ID
-export const getEntryById = async (req: Request, res: Response) => {
+export const getEntryById = async (req: Request, res: Response, next: NextFunction) => {
     
         try {
             const { id } = req.params;
             const entry: any = await Entry.findById(id);
             const userId = req.user.id;
         
-            if (!entry || entry.userId.toString() !== userId) {
-                res.status(401).json({ error: true, data: null, message: "Entry not found" });
-                return;
-            }
+            if (!entry || (entry.user.toString() !== userId)) {
+                return next(new ErrorResponse('Error', 401, ["Entry not found"]))
+            };
+
           res.status(200).json(entry);
           return;
     } catch (error: any) {
-        res.status(500).json({ error: true, data: null, "Error fetching entry": error.message });
-        return;
+        return next(new ErrorResponse('Error', 500, ["Error fetching entry: " + error.message]));
     }
 };
 
@@ -68,7 +109,7 @@ export const updateEntry = async (req: Request, res: Response) => {
         const userId = req.user.id;
         const entry = await Entry.findByIdAndUpdate(req.params.id, req.body, { new: true });
 
-        if (!entry || entry.userId.toString() !== userId) {
+        if (!entry || (entry.user.toString() !== userId)) {
             res.status(401).json({ error: true, data: null, message: "Entry not found" });
             return;
         }
@@ -84,7 +125,7 @@ export const updateEntry = async (req: Request, res: Response) => {
 export const deleteEntry = async (req: Request, res: Response) => {
     try {
         const entry = await Entry.findByIdAndDelete(req.params.id);
-        if (!entry || entry.userId.toString() !== req.user.id) {
+        if (!entry || (entry.user.toString() !== req.user.id)) {
             res.status(401).json({ error: true, data: null, message: "Entry not found or not authorized" });
             return;
           }

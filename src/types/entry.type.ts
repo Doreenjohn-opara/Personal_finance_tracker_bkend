@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 
 export interface IEntry {
-    userId: Types.ObjectId;
+    user: Types.ObjectId;
     date: Date;
     amount: number;
     category: string;
