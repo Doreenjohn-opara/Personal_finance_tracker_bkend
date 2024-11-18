@@ -5,7 +5,7 @@ import colors from 'colors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.config';
 import authRoutes from './routes/auth.routes';
-import entryRoutes from './routes/entry.routes';
+import entryRoutes from './routes/transaction.routes';
 
 dotenv.config();
 
