@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import errorHandler from "../middleware/errorHandler.middleware";
+import { Request, Response, NextFunction } from "express";
+import ErrorResponse from "../utils/error.utils";
 import User from '../model/User.model';
 import { IUser } from "../types/user.type";
 import bcrypt from 'bcrypt';
@@ -8,8 +8,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-
-export const registerUser = async (req: Request, res: Response) => {
+export const registerUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { username, email, password } = req.body;
         const salt = await bcrypt.genSalt(10);
@@ -17,46 +16,39 @@ export const registerUser = async (req: Request, res: Response) => {
         const user = new User({ username, email, password: hashedPassword });
 
         if (!user) {
-            res.status(400).json({ error: true, data: null, message: 'Invalid user data' })
-            return;
+            return next(new ErrorResponse('Error', 400, ["Invalid user data"]));
         }
         
         await user.save();
         res.status(201).json({ error: false, data: null, message: 'User registered successfully!' });
     } catch (error) {
         if (error instanceof Error) {
-            res.status(400).json({ error: true, data: null, message: 'Internal server error: ' + error.message });
-            return;
+            return next(new ErrorResponse('Error', 400, ["Internal server error: " + error.message ]));
         } else {
-            res.status(400).json({ error: true, data: null, message: 'An unknown error occurred.' });
-            return;
+            return next(new ErrorResponse('Error', 400, ["An unknown error occurred."]));
         }
     }
 }
 
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { email, password } = req.body;
         if (!email) {
-            res.status(400).json({error: true, data: null, message: 'Please Provide email or password'})
-            return;
+            return next(new ErrorResponse('Error', 400, ["Please Provide email or password"]));
         };
 
         if (!password) {
-            res.status(400).json({error: true, data: null, message: 'Invalid'});
-                return;
+            return next(new ErrorResponse('Error', 400, ["Invalid"]));
         };
 
         const user = await User.findOne({ email });
         if(!user) {
-            res.status(400).json({error: true, data: null, message: 'User not found'});
-            return;
+            return next(new ErrorResponse('Error', 400, ["User not found"]));
         }
 
         const comparePassword = bcrypt.compare(password, user.password);
         if (!comparePassword){
-            res.status(400).json({error: true, data: null, message: 'Invalid'});
-            return;
+            return next(new ErrorResponse('Error', 400, ["Invalid"]));
         }
 
         try {
@@ -64,11 +56,9 @@ export const loginUser = async (req: Request, res: Response) => {
             res.status(200).json({error: false, data: token, message: 'Login Successful'})
             return;
         } catch (error) {
-            res.status(500).json({error: true, data: null, message: "Token generation failed"})
-            return;
+            return next(new ErrorResponse('Error', 500, ["Token generation failed"]));
         }
     } catch (error: any) {
-        res.status(500).json({error: true, data: null, message: error.message})
-        return;
+        return next(new ErrorResponse('Error', 500, [error.message]));
     }
 }

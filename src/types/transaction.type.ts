@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 
-export interface IEntry {
+export interface ITransaction {
     user: Types.ObjectId;
     date: Date;
     amount: number;

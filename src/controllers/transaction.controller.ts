@@ -1,5 +1,5 @@
 import { RequestHandler, Request, Response, NextFunction } from "express";
-import Entry from "../model/Transaction.model";
+import Transaction from "../model/Transaction.model";
 import ErrorResponse from "../utils/error.utils";
 import moment from 'moment'; 
 
@@ -24,13 +24,13 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
         }
 
         // Create and save the entry
-        const entry = new Entry({ user: userId, date, amount, category, type, description });
-        await entry.save();
+        const transaction = new Transaction({ user: userId, date, amount, category, type, description });
+        await transaction.save();
         
-        res.status(201).json({error: false, data: entry, message: "Transaction saved successfully"});
+        res.status(201).json({error: false, data: transaction, message: "Transaction saved successfully"});
 
     } catch (error: any) {
-        return next(new ErrorResponse('Error', 500, ["Error creating entries: " + error.message]));
+        return next(new ErrorResponse('Error', 500, ["Error creating transactions: " + error.message]));
     }
 }
 
@@ -45,13 +45,13 @@ export const getAllTransactions = async (req: Request, res: Response, next: Next
         return next(new ErrorResponse('Error', 500, ["Unauthorized access"]));
         }
 
-        const entries: any = await Entry.find({user: userId}).sort({createdAt: - 1});
+        const transactions: any = await Transaction.find({user: userId}).sort({createdAt: - 1});
 
         // Check if no entries are found
-        if (entries.length === 0) {
+        if (transactions.length === 0) {
              res.status(200).json({
                 error: false,
-                message: "No entries found for this user.",
+                message: "No transactions found for this user",
                 data: [],
             });
 
@@ -59,10 +59,10 @@ export const getAllTransactions = async (req: Request, res: Response, next: Next
             // result.message = '....'
             return;
         }
-        res.status(200).json({error: false, data: entries, message: "Transactions retrieved Successfully"});
+        res.status(200).json({error: false, data: transactions, message: "Transactions retrieved Successfully"});
         return;
     } catch (error: any) {
-        return next(new ErrorResponse('Error', 500, ["Error fetching entries: " + error.message]));
+        return next(new ErrorResponse('Error', 500, ["Error fetching transactions: " + error.message]));
     }
     
 };
@@ -72,53 +72,112 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
     
         try {
             const { id } = req.params;
-            const entry: any = await Entry.findById(id);
+            const transaction: any = await Transaction.findById(id);
             const userId = req.user.id;
         
-            if (!entry || (entry.user.toString() !== userId)) {
-                return next(new ErrorResponse('Error', 401, ["Entry not found"]))
+            if (!transaction || (transaction.user.toString() !== userId)) {
+                return next(new ErrorResponse('Error', 401, ["Transaction not found"]))
             };
 
-          res.status(200).json({error: false, data: entry, message: "Transaction retrieved successfully"});
+          res.status(200).json({error: false, data: transaction, message: "Transaction retrieved successfully"});
           return;
     } catch (error: any) {
-        return next(new ErrorResponse('Error', 500, ["Error fetching entry: " + error.message]));
+        return next(new ErrorResponse('Error', 500, ["Error fetching transaction: " + error.message]));
     }
 };
 
 // Updating entry by ID
-export const updateTransaction = async (req: Request, res: Response) => {
+export const updateTransaction = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { date, amount, category, type, description } = req.body;
         const userId = req.user.id;
-        const entry: any = await Entry.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const transaction: any = await Transaction.findByIdAndUpdate(req.params.id, req.body, { new: true });
 
-        if (!entry || (entry.user.toString() !== userId)) {
-            res.status(401).json({ error: true, data: null, message: "Entry not found" });
-            return;
+        if (!transaction || (transaction.user.toString() !== userId)) {
+            return next(new ErrorResponse('Error', 401, ["Transaction not found"]));
         }
-        res.status(200).json({error: false, data: entry, message: "Transaction updated successfully"});
+        res.status(200).json({error: false, data: transaction, message: "Transaction updated successfully"});
         return; 
     } catch (error: any) {
-        res.status(500).json({ error: true, data: null, "Error updating note": error.message });
-        return; 
+        return next(new ErrorResponse('Error', 500, ["Error updating transaction: " + error.message ])); 
     };
 };
 
 // Deleting entries by ID
-export const deleteTransaction = async (req: Request, res: Response) => {
+export const deleteTransaction = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const entry = await Entry.findByIdAndDelete(req.params.id);
-        if (!entry || (entry.user.toString() !== req.user.id)) {
-            res.status(401).json({ error: true, data: null, message: "Entry not found or not authorized" });
-            return;
-          }
-          res.status(200).json({ error: true, data: null, message: "Entry deleted successfully" });
-          return; 
-    } catch (error) {
-        res.status(500).json({ error: true, data: null, "Error deleting note": error });
-        return;
+        const transaction = await Transaction.findByIdAndDelete(req.params.id);
+        if (!transaction || (transaction.user.toString() !== req.user.id)) {
+            return next(new ErrorResponse('Error', 401, ["Transaction not found or not authorized"])); 
+        }
+          return next(new ErrorResponse('Error', 200, ["Transaction deleted successfully"]));
+    } catch (error: any) {
+        return next(new ErrorResponse('Error', 500, ["Transaction deleting entry: " + error.message ])); 
     }
 }
 
-
+// Get monthly summary with income, expenses, and balance breakdown
+export const getMonthlySummary = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { month, year } = req.query;
+      const start = new Date(`${year}-${month}-01`);
+      const end = new Date(start);
+      end.setMonth(start.getMonth() + 1);
+  
+      const transactions = await Transaction.find({
+        userId: req.user.id,
+        date: { $gte: start, $lt: end },
+      });
+  
+      const summary = transactions.reduce(
+        (acc, transaction) => {
+          if (transaction.type === "income") {
+            acc.totalIncome += transaction.amount;
+          } else {
+            acc.totalExpenses += transaction.amount;
+            acc.categoryBreakdown[transaction.category] = (acc.categoryBreakdown[transaction.category] || 0) + transaction.amount;
+          }
+          return acc;
+        },
+        { totalIncome: 0, totalExpenses: 0, categoryBreakdown: {} as Record<string, number>, balance: 0 }
+      );
+  
+      summary.balance = summary.totalIncome - summary.totalExpenses;
+      res.status(200).json({error: false, data: summary, message: "Monthly Transacation Summary retrieved successfully"});
+    } catch (error: any) {
+        return next(new ErrorResponse('Error', 500, ["Error fetching summary: " + error.message ])); 
+    }
+  };
+  
+// Get yearly summary for income, expenses, and balance
+export const getYearlySummary = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { year } = req.query;
+      const start = new Date(`${year}-01-01`);
+      const end = new Date(`${parseInt(year as string, 10) + 1}-01-01`);
+  
+      const transactions = await Transaction.find({
+        userId: req.user.id,
+        date: { $gte: start, $lt: end },
+      });
+  
+      const summary: any = transactions.reduce(
+        (acc, transaction) => {
+          if (transaction.type === "income") {
+            acc.totalIncome += transaction.amount;
+          } else {
+            acc.totalExpenses += transaction.amount;
+            acc.categoryBreakdown[transaction.category] = (acc.categoryBreakdown[transaction.category] || 0) + transaction.amount;
+          }
+          return acc;
+        },
+        { totalIncome: 0, totalExpenses: 0, categoryBreakdown: {} as Record<string, number>, balance: 0 }
+      );
+  
+      summary.balance = summary.totalIncome - summary.totalExpenses;
+      res.status(200).json({ error:false, data: summary, message: "Yearly Transacation Summary retrieved successfully" });
+    } catch (error: any) {
+        return next(new ErrorResponse('Error', 500, ["Error fetching summary: " + error.message ])); 
+    }
+  };
+  

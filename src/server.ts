@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.config';
 import authRoutes from './routes/auth.routes';
 import entryRoutes from './routes/transaction.routes';
+import budgetRoutes from './routes/budget.routes';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(errorHandler);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/entries', entryRoutes);
+app.use('api/budget', budgetRoutes);
 
 
 // connect to server

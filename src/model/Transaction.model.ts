@@ -1,7 +1,7 @@
 import { Schema, Types, model} from 'mongoose';
-import { IEntry } from '../types/transaction.type';
+import { ITransaction } from '../types/transaction.type';
 
-const entrySchema = new Schema<IEntry>(
+const transactionSchema = new Schema<ITransaction>(
     {
     user: { 
         type: Schema.Types.ObjectId, 
@@ -39,6 +39,6 @@ const entrySchema = new Schema<IEntry>(
   }
 );
 
-const Entry = model<IEntry>("Entry", entrySchema);
+const Transaction = model<ITransaction>("Entry", transactionSchema);
 
-export default Entry;
+export default Transaction;
